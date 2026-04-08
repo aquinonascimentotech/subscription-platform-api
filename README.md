@@ -150,4 +150,4 @@ Este projeto está sob a licença MIT.
 
 ---
 
-Desenvolvido por [Felipe de Aquino Nascimento](https://github.com/aquinonascimentotech)
+Desenvolvido por [Aquino Nascimento Tech](https://github.com/aquinonascimentotech)
