@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  PAUSED
+  TRIALING
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  password      String
+  name          String
+  role          UserRole       @default(USER)
+  stripeCustomerId String?     @unique @map("stripe_customer_id")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  
+  subscriptions Subscription[]
+  payments      Payment[]
+
+  @@map("users")
+}
+
+model Plan {
+  id              String         @id @default(uuid())
+  name            String
+  description     String?
+  price           Decimal        @db.Decimal(10, 2)
+  currency        String         @default("usd")
+  interval        String         // "month" or "year"
+  intervalCount   Int            @default(1) @map("interval_count")
+  trialPeriodDays Int?          @map("trial_period_days")
+  stripePriceId   String?        @unique @map("stripe_price_id")
+  stripeProductId String?        @unique @map("stripe_product_id")
+  features        String[]       // Array de features do plano
+  isActive        Boolean        @default(true) @map("is_active")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  
+  subscriptions   Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                   String             @id @default(uuid())
+  userId               String             @map("user_id")
+  planId               String             @map("plan_id")
+  status               SubscriptionStatus @default(ACTIVE)
+  stripeSubscriptionId String?            @unique @map("stripe_subscription_id")
+  currentPeriodStart   DateTime           @map("current_period_start")
+  currentPeriodEnd     DateTime           @map("current_period_end")
+  cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
+  canceledAt           DateTime?          @map("canceled_at")
+  trialStart           DateTime?          @map("trial_start")
+  trialEnd             DateTime?          @map("trial_end")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+  
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                 Plan               @relation(fields: [planId], references: [id])
+  payments             Payment[]
+
+  @@index([userId])
+  @@index([planId])
+  @@map("subscriptions")
+}
+
+model Payment {
+  id                  String        @id @default(uuid())
+  userId              String        @map("user_id")
+  subscriptionId      String?       @map("subscription_id")
+  stripePaymentIntentId String?     @unique @map("stripe_payment_intent_id")
+  amount              Decimal       @db.Decimal(10, 2)
+  currency            String        @default("usd")
+  status              PaymentStatus @default(PENDING)
+  description         String?
+  metadata            Json?
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+  
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription        Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([userId])
+  @@index([subscriptionId])
+  @@map("payments")
+}
